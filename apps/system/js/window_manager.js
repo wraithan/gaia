@@ -63,7 +63,8 @@ var WindowManager = (function() {
   // Some document elements we use
   var windows = document.getElementById('windows');
   var screenElement = document.getElementById('screen');
-  var wrapperFooter = document.querySelector('#wrapper');
+  var wrapperHeader = document.querySelector('#wrapper-activity-indicator');
+  var wrapperFooter = document.querySelector('#wrapper-footer');
 
   // XXX: Unless https://bugzilla.mozilla.org/show_bug.cgi?id=808231
   // is fixed, wait for 100ms before starting the transition so
@@ -402,10 +403,6 @@ var WindowManager = (function() {
       frame.setVisible(false);
 
     screenElement.classList.remove('fullscreen-app');
-
-    if ('wrapper' in frame.dataset) {
-      wrapperFooter.classList.remove('visible');
-    }
   }
 
   // The following things needs to happen when firstpaint happens.
@@ -625,6 +622,10 @@ var WindowManager = (function() {
       displayedApp = origin;
 
       return;
+    } else if (origin === ftuURL) {
+      // Add a way to identify ftu app
+      // (Used by SimLock)
+      openFrame.classList.add('ftu');
     }
 
     if (requireFullscreen(origin))
@@ -679,6 +680,10 @@ var WindowManager = (function() {
       // Start the transition
       closeFrame.classList.add('closing');
       closeFrame.classList.remove('active');
+      if ('wrapper' in closeFrame.dataset) {
+        wrapperHeader.classList.remove('visible');
+        wrapperFooter.classList.remove('visible');
+      }
     }, kTransitionWait);
   }
 
@@ -753,6 +758,9 @@ var WindowManager = (function() {
   function retrieveFTU() {
     window.asyncStorage.getItem('ftu.enabled', function getItem(launchFTU) {
       if (launchFTU === false) {
+        // Eventually ask for SIM code, but only when we do not show FTU,
+        // which already asks for it!
+        SimLock.showIfLocked();
         ensureHomescreen();
         return;
       }
@@ -1315,6 +1323,9 @@ var WindowManager = (function() {
       }
 
       if (isRunning(url)) {
+        if ('loading' in runningApps[url].frame.dataset) {
+          wrapperHeader.classList.add('visible');
+        }
         setDisplayedApp(url);
         return;
       }
@@ -1341,6 +1352,16 @@ var WindowManager = (function() {
                                   decodeURIComponent(features.search.url);
         }
       } catch (ex) { }
+
+      frameElement.addEventListener('mozbrowserloadstart', function start() {
+        frameElement.dataset.loading = true;
+        wrapperHeader.classList.add('visible');
+      });
+
+      frameElement.addEventListener('mozbrowserloadend', function end() {
+        delete frameElement.dataset.loading;
+        wrapperHeader.classList.remove('visible');
+      });
 
       appendFrame(frameElement, url, url, frameElement.dataset.name, {
         'name': frameElement.dataset.name
