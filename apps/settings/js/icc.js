@@ -212,8 +212,19 @@
         responseSTKCommand({
           resultCode: icc.STK_RESULT_OK
         });
-        if (!options.confirmMessage || confirm(options.confirmMessage)) {
-          openLink(options.url);
+        var url = options.url;
+        if (url !== null && url.length !== 0) {
+          if (!options.confirmMessage || confirm(options.confirmMessage)) {
+            // Sanitise url just in case it doesn't start with http or https
+            // the web activity won't work, so add by default the http protocol
+            if (url.search("^https?://") == -1) {
+              // Our url doesn't contains the protocol
+              url = 'http://' + url;
+            }
+            openLink(url);
+          }
+        } else {
+          alert(_('operatorService-invalid-url'));
         }
         break;
 
@@ -551,9 +562,9 @@
     var button = document.createElement('button');
     button.id = 'stk-item-ok';
     button.textContent = 'Ok';
-    if (options.minLength) {
-      button.disabled = true;
-    }
+    button.disabled = !checkInputLengthValid(input.value.length,
+                                              options.minLength,
+                                              options.maxLength);
     button.onclick = function(event) {
       var value = document.getElementById('stk-item-input').value;
       responseSTKCommand({
@@ -563,8 +574,9 @@
     };
 
     input.onkeyup = function(event) {
-      button.disabled = (input.value.length < options.minLength) ||
-                        (input.value.length > options.maxLength);
+      button.disabled = !checkInputLengthValid(input.value.length,
+                                              options.minLength,
+                                              options.maxLength);
     };
 
     label.appendChild(button);
@@ -587,6 +599,17 @@
       li.appendChild(label);
       iccStkList.appendChild(li);
     }
+  }
+
+  /**
+   * Check the length of the input is valid.
+   *
+   * @param inputLen    The length of the input.
+   * @param minLen      Minimum length required of the input.
+   * @param maxLen      Maximum length required of the input.
+   */
+  function checkInputLengthValid(inputLen, minLen, maxLen) {
+    return (inputLen >= minLen) && (inputLen <= maxLen);
   }
 
   /**
